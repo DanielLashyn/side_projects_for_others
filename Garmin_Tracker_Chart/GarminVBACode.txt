@@ -32,13 +32,14 @@ Sub main()
     '' Loads the garmin data in the newly created sheet
     loadGarminData curFileName, curSheet
     
-    
-    '' clean data in the sheet
-    
-    
+        
+
     addCustomHeaders curSheet
+    '' adds the info runner info
     
-    
+
+    '' adds lap info
+    setStepType curSheet
     
     '' create the rest data
     '' create the ran data
@@ -105,7 +106,7 @@ Sub loadGarminData(filePath As String, destWS As Worksheet)
     Dim srcCSV As Workbook
     Dim srcCSVws As Worksheet
     Dim allowedCols As Variant
-    Dim col, csvLastCol, csv, LastRow, nextDestCol As Long
+    Dim col, csvLastCol, csv, lastRow, nextDestCol As Long
     Dim Header As String
     
     
@@ -146,13 +147,6 @@ Sub loadGarminData(filePath As String, destWS As Worksheet)
       
 End Sub
 
-    
-    
-    
-   
-    
-
-
 Sub addCustomHeaders(selectedSheet As Worksheet)
 
     selectedSheet.Range("A1").Value = "Date"
@@ -168,6 +162,43 @@ Sub addCustomHeaders(selectedSheet As Worksheet)
     
 
 End Sub
+Sub setStepType(selSheet As Worksheet)
+        
+    Dim threshold As Date
+    Dim lastRow, headerRow, curRow, selCol As Long
+    Dim cellVal As String
+    
+    Dim t As Date
+    
+        
+    threshold = TimeValue("07:00:00") '' threshold is 7 mins
+    
+    selCol = 6
+    headerRow = 4
+    lastRow = selSheet.Cells(selSheet.Rows.count, "F").End(xlUp).Row '' CHANGE from being hardcoded
+    
+    
+    For curRow = headerRow + 1 To lastRow
+        cellVal = selSheet.Cells(curRow, selCol).Value
+        
+        t = CDate(CDbl(cellVal))
+        
+        If IsDate(t) Then
+            If TimeValue(t) < threshold Then
+                ' Do something here:
+                ' Example: highlight the cell
+            selSheet.Cells(curRow, 3).Value = "Run"
+            
+        Else
+            selSheet.Cells(curRow, 3).Value = "Recovery"
+        End If
+        
+    End If
+        
+    Next curRow
+
+End Sub
+
 
 Sub sortDataSheet()
     Dim headers() As Variant
@@ -182,7 +213,7 @@ Sub recoveryDataSheet()
     Dim colNum As Integer
     
     Dim rdSheet As Worksheet
-    Dim LastRow, i As Long
+    Dim lastRow, i As Long
     
     Set rdSheet = Worksheets("Recovery Data")
         
@@ -197,23 +228,21 @@ Sub recoveryDataSheet()
     '' Checks that it was able to find the column
     If colNum = -1 Then GoTo EndSection
         
-    LastRow = rdSheet.Cells(rdSheet.Rows.count, colNum).End(xlUp).Row
+    lastRow = rdSheet.Cells(rdSheet.Rows.count, colNum).End(xlUp).Row
     
-    For i = LastRow - 1 To 2 Step -2
+    For i = lastRow - 1 To 2 Step -2
         rdSheet.Rows(i).Delete
     Next i
     
-
 EndSection:
 
 End Sub
-
 Sub ranDataSheet()
     Dim headers() As Variant
     Dim colNum As Integer
     
     Dim rdSheet As Worksheet
-    Dim LastRow, i As Long
+    Dim lastRow, i As Long
     
     Set rdSheet = Worksheets("Run Data")
         
@@ -228,9 +257,9 @@ Sub ranDataSheet()
     '' Checks that it was able to find the column
     If colNum = -1 Then GoTo EndSection
         
-    LastRow = rdSheet.Cells(rdSheet.Rows.count, colNum).End(xlUp).Row
+    lastRow = rdSheet.Cells(rdSheet.Rows.count, colNum).End(xlUp).Row
     
-    For i = LastRow To 2 Step -2
+    For i = lastRow To 2 Step -2
         
         rdSheet.Rows(i).Delete
     
@@ -251,7 +280,7 @@ Sub copyData(srcName As String, dstName As String, colNames() As Variant)
     Dim srcWS, dstws As Worksheet
     Dim headerName As String
     Dim orgColNum, i As Integer
-    Dim LastRow As Long
+    Dim lastRow As Long
     
     '' Note this is the order of the columns
 
@@ -271,10 +300,10 @@ Sub copyData(srcName As String, dstName As String, colNames() As Variant)
         If (orgColNum <> -1) Then
 
         ' --- Find last used row in that column ---
-        LastRow = srcWS.Cells(srcWS.Rows.count, orgColNum).End(xlUp).Row
+        lastRow = srcWS.Cells(srcWS.Rows.count, orgColNum).End(xlUp).Row
         
         ' Copy the column to destination sheet
-        srcWS.Range(srcWS.Cells(1, orgColNum), srcWS.Cells(LastRow, orgColNum)).Copy _
+        srcWS.Range(srcWS.Cells(1, orgColNum), srcWS.Cells(lastRow, orgColNum)).Copy _
                 Destination:=dstws.Cells(1, i + 1)
                 
         End If
@@ -283,14 +312,12 @@ Sub copyData(srcName As String, dstName As String, colNames() As Variant)
     
     '' Removes the last row if it's a summary row
         
-    LastRow = dstws.Cells(dstws.Rows.count, 1).End(xlUp).Row
-    If (dstws.Cells(LastRow, 1).Value = "Summary") Then
-        dstws.Rows(LastRow).Delete
+    lastRow = dstws.Cells(dstws.Rows.count, 1).End(xlUp).Row
+    If (dstws.Cells(lastRow, 1).Value = "Summary") Then
+        dstws.Rows(lastRow).Delete
     End If
 
 End Sub
-
-
 Function IsInArray(val As String, arr As Variant) As Boolean
     Dim i As Long
     For i = LBound(arr) To UBound(arr)
