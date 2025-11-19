@@ -9,14 +9,20 @@ Public GarmanWorkBook As Workbook
 '' TODO
 '' - createsheet:
     '' Add condition to handle if a sheet already has that name
-    
+    '' Have way to find end of Row
+'' Check hardvalues
+'' add formating to the Summary and Z Value Cells
+
+
 
 Sub main()
 
     Dim clientFiles() As String
     Dim curFileName As String
     Dim curSheet As Worksheet
-    Dim lastRow
+    Dim lastRow As Long
+    Dim savedRow As Long
+    
     
     
     
@@ -39,14 +45,23 @@ Sub main()
     '' adds the info runner info
     
 
-    '' adds lap info
+    '' adds Steptype and interval number info
     setStepType curSheet
-    
     setIntervalNum curSheet
     
-    '' create the rest data
-    '' create the ran data
+    lastRow = 0
     
+    '' create the rest data
+     createStepTables "Recovery", curSheet, 18, 4, lastRow
+     createAverages curSheet, 4 + 1, lastRow, 18, 30
+     
+
+          
+    '' create the run data
+    savedRow = lastRow + 4
+    createStepTables "Run", curSheet, 18, savedRow, lastRow
+    createAverages curSheet, savedRow + 1, lastRow, 18, 30
+    createZValue curSheet, savedRow + 1, lastRow, 18, 30
     '' create chart for each table
     
     
@@ -131,7 +146,7 @@ Sub loadGarminData(filePath As String, destWS As Worksheet)
         If IsInArray(Header, allowedCols) Then
             ' Copy the entire column to next available destination col
             
-            csvLastRow = srcCSVws.Cells(srcCSVws.Rows.count, col).End(xlUp).Row
+            csvLastRow = srcCSVws.Cells(srcCSVws.Rows.count, col).End(xlUp).row
             srcCSVws.Range(srcCSVws.Cells(1, col), srcCSVws.Cells(csvLastRow, col)).Copy _
         destWS.Cells(4, nextDestCol)
             nextDestCol = nextDestCol + 1
@@ -163,7 +178,6 @@ Sub addCustomHeaders(selectedSheet As Worksheet)
     selectedSheet.Range("B4").Value = "Interval"
     selectedSheet.Range("C4").Value = "Step Type"
     
-
 End Sub
 Sub setStepType(selSheet As Worksheet)
         
@@ -178,7 +192,7 @@ Sub setStepType(selSheet As Worksheet)
     
     selCol = 6
     headerRow = 4
-    lastRow = selSheet.Cells(selSheet.Rows.count, "F").End(xlUp).Row '' CHANGE from being hardcoded
+    lastRow = selSheet.Cells(selSheet.Rows.count, "F").End(xlUp).row '' CHANGE from being hardcoded
     
     
     For curRow = headerRow + 1 To lastRow - 1
@@ -188,8 +202,6 @@ Sub setStepType(selSheet As Worksheet)
         
         If IsDate(t) Then
             If TimeValue(t) < threshold Then
-                ' Do something here:
-                ' Example: highlight the cell
             selSheet.Cells(curRow, 3).Value = "Run"
             
         Else
@@ -208,7 +220,7 @@ Sub setIntervalNum(selSheet As Worksheet)
     headerRow = 4
     counter = 0
     
-    lastRow = selSheet.Cells(selSheet.Rows.count, "C").End(xlUp).Row
+    lastRow = selSheet.Cells(selSheet.Rows.count, "C").End(xlUp).row
     
     For curRow = headerRow + 1 To lastRow
     
@@ -217,12 +229,57 @@ Sub setIntervalNum(selSheet As Worksheet)
         End If
         selSheet.Cells(curRow, 2).Value = counter
 
-        
-        
+    Next curRow
+
+End Sub
+Sub createStepTables(stepType As String, selSheet As Worksheet, startCol As Long, startRow As Long, ByRef finalRow As Long)
+    Dim lastRow, curRow, headerRow, stepRow As Long
+    
+    
+    stepRow = startRow + 1
+    headerRow = 4
+    lastRow = selSheet.Cells(selSheet.Rows.count, "C").End(xlUp).row
+    
+    
+    selSheet.Range("B4:N4").Copy Destination:=selSheet.Cells(startRow, startCol)
+    
+    For curRow = headerRow + 1 To lastRow
+        If (selSheet.Cells(curRow, "C").Value = stepType) Then
+            selSheet.Range(selSheet.Cells(curRow, "B"), _
+               selSheet.Cells(curRow, "N")).Copy _
+               Destination:=selSheet.Cells(stepRow, startCol)
+            stepRow = stepRow + 1
+        End If
+           
+    
     Next curRow
     
+    finalRow = stepRow
+    
+End Sub
+Sub createAverages(selSheet As Worksheet, startRow As Long, endRow As Long, startColumn As Long, endColumn As Long)
+    Dim i As Long
     
     
+    selSheet.Cells(endRow, startColumn).Value = "AVERAGES"
+   
+    For i = startColumn + 2 To endColumn
+        ''selSheet.Cells(endRow, i).FormulaR1C1 = "=AVERAGE(R[-29]C:R[-1]C)"
+        
+        selSheet.Cells(endRow, i).FormulaR1C1 = _
+        "=AVERAGE(R" & startRow & "C" & i & ":R" & endRow - 1 & "C" & i & ")"
+    Next i
+
+End Sub
+Sub createZValue(selSheet As Worksheet, startRow As Long, endRow As Long, startColumn As Long, endColumn As Long)
+    
+    selSheet.Cells(endRow + 1, startColumn).Value = "STANDARD DEVIATIONS"
+    For i = startColumn + 2 To endColumn
+        ''selSheet.Cells(endRow, i).FormulaR1C1 = "=AVERAGE(R[-29]C:R[-1]C)"
+        
+        selSheet.Cells(endRow + 1, i).FormulaR1C1 = _
+        "=STDEV(R" & startRow & "C" & i & ":R" & endRow - 1 & "C" & i & ")"
+    Next i
 
 End Sub
 
@@ -255,7 +312,7 @@ Sub recoveryDataSheet()
     '' Checks that it was able to find the column
     If colNum = -1 Then GoTo EndSection
         
-    lastRow = rdSheet.Cells(rdSheet.Rows.count, colNum).End(xlUp).Row
+    lastRow = rdSheet.Cells(rdSheet.Rows.count, colNum).End(xlUp).row
     
     For i = lastRow - 1 To 2 Step -2
         rdSheet.Rows(i).Delete
@@ -284,7 +341,7 @@ Sub ranDataSheet()
     '' Checks that it was able to find the column
     If colNum = -1 Then GoTo EndSection
         
-    lastRow = rdSheet.Cells(rdSheet.Rows.count, colNum).End(xlUp).Row
+    lastRow = rdSheet.Cells(rdSheet.Rows.count, colNum).End(xlUp).row
     
     For i = lastRow To 2 Step -2
         
@@ -327,7 +384,7 @@ Sub copyData(srcName As String, dstName As String, colNames() As Variant)
         If (orgColNum <> -1) Then
 
         ' --- Find last used row in that column ---
-        lastRow = srcWS.Cells(srcWS.Rows.count, orgColNum).End(xlUp).Row
+        lastRow = srcWS.Cells(srcWS.Rows.count, orgColNum).End(xlUp).row
         
         ' Copy the column to destination sheet
         srcWS.Range(srcWS.Cells(1, orgColNum), srcWS.Cells(lastRow, orgColNum)).Copy _
@@ -339,7 +396,7 @@ Sub copyData(srcName As String, dstName As String, colNames() As Variant)
     
     '' Removes the last row if it's a summary row
         
-    lastRow = dstws.Cells(dstws.Rows.count, 1).End(xlUp).Row
+    lastRow = dstws.Cells(dstws.Rows.count, 1).End(xlUp).row
     If (dstws.Cells(lastRow, 1).Value = "Summary") Then
         dstws.Rows(lastRow).Delete
     End If
