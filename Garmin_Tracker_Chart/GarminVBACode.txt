@@ -1,10 +1,10 @@
 '' Daniel Lashyn November 2025
 
+
+Const CLIENT_DATA_FOLDER As String = "data"
+
 Public GlobalSheets As Collection
 Public GarmanWorkBook As Workbook
-
-    
-
 
 '' TODO
 '' - createsheet:
@@ -12,18 +12,46 @@ Public GarmanWorkBook As Workbook
     
 
 Sub main()
-    init
-    createSheet
-    sortDataSheet
-    recoveryDataSheet
+
+    Dim clientFiles() As String
+    Dim curFileName As String
+    Dim curSheet As Worksheet
     
+    
+    init
+    ''createSheet
+    
+    clientFiles = GetFileInDirectory
+    
+    curFileName = ActiveWorkbook.Path & "\" & CLIENT_DATA_FOLDER & "\" & clientFiles(0)
+    
+    
+    Set curSheet = Worksheets("Sort Data")
+    
+    
+    '' Loads the garmin data in the newly created sheet
+    loadGarminData curFileName, curSheet
+    
+    
+    '' clean data in the sheet
+    
+    
+    addCustomHeaders curSheet
+    
+    
+    
+    '' create the rest data
+    '' create the ran data
+    
+    '' create chart for each table
+    
+    
+   
 
 End Sub
 Sub init()
     Set GarmanWorkBook = ActiveWorkbook
     Set GlobalSheets = New Collection
-
-
 End Sub
 Sub createSheet()
     Dim curws As Worksheet
@@ -31,25 +59,121 @@ Sub createSheet()
     Dim wsNames As Variant
     Dim i As Integer
     
-    wsNames = Array("Sort Data", "Charts", "Run Data", "Recovery Data")
+    wsNames = Array("Sort Data")
     
     For i = LBound(wsNames) To UBound(wsNames)
     
-        Set curws = GarmanWorkBook.Worksheets.Add(After:=GarmanWorkBook.Worksheets(GarmanWorkBook.Worksheets.Count))
+        Set curws = GarmanWorkBook.Worksheets.Add(After:=GarmanWorkBook.Worksheets(GarmanWorkBook.Worksheets.count))
         curws.Name = wsNames(i)
     
     GlobalSheets.Add curws, wsNames(i)
     Next i
     
 End Sub
+' Gets the name of all the .csv files in the CLIENT_DATA_FOLDER'
+Function GetFileInDirectory() As Variant
+    Dim selectedDir As String
+    Dim fileName As String
+    Dim files() As String
+    Dim count As Integer
+    
+    selectedDir = ActiveWorkbook.Path & "\" & CLIENT_DATA_FOLDER & "\"
+    
+    
+    fileName = Dir(selectedDir & "*.csv")
+    
+    
+    count = 0
+    
+    Do While fileName <> ""
+        ReDim Preserve files(count)
+        files(count) = fileName
+        count = count + 1
+        fileName = Dir
+    Loop
+    
+    'Ends the program if there were no .xlsx files found in the the CLIENT_DATA_FOLDER'
+    If count <= 0 Then
+        MsgBox "Add .xlsx files to " & CLIENT_DATA_FOLDER, vbOKOnly, "Error: No .xls found"
+        End
+    End If
+        
+    GetFileInDirectory = files
+End Function
+
+Sub loadGarminData(filePath As String, destWS As Worksheet)
+    Dim srcCSV As Workbook
+    Dim srcCSVws As Worksheet
+    Dim allowedCols As Variant
+    Dim col, csvLastCol, csv, LastRow, nextDestCol As Long
+    Dim Header As String
+    
+    
+    
+    Set srcCSV = Workbooks.Open(fileName:=filePath)
+    Set srcCSVws = srcCSV.Sheets(1)
+    
+    csvLastCol = srcCSVws.Cells(1, srcCSVws.Columns.count).End(xlToLeft).Column
+    
+    
+    
+    allowedCols = Array("Interval", "Step Type", "Time", "Distance", "Avg Pace", "Best Pace", "Avg HR", "Max HR", "Avg Run Cadence", "Max Run Cadence", "Avg Stride Length", "Avg Vertical Oscillation", "Avg Vertical Ratio")
+    nextDestCol = destWS.Range("D4").Column
+    
+    ' Loop all source CSV columns
+    For col = 1 To csvLastCol
+        Header = srcCSVws.Cells(1, col).Value
+        
+        If IsInArray(Header, allowedCols) Then
+            ' Copy the entire column to next available destination col
+            
+            csvLastRow = srcCSVws.Cells(srcCSVws.Rows.count, col).End(xlUp).Row
+            srcCSVws.Range(srcCSVws.Cells(1, col), srcCSVws.Cells(csvLastRow, col)).Copy _
+        destWS.Cells(4, nextDestCol)
+            nextDestCol = nextDestCol + 1
+        End If
+    Next col
+
+    ' Copy all used data from the CSV
+    ''srcCSV.Sheets(1).UsedRange.Copy destWS.Range("D4")
+    
+    
+    
+    
+
+    ' Close CSV without saving
+    srcCSV.Close SaveChanges:=False
+      
+End Sub
+
+    
+    
+    
+   
+    
+
+
+Sub addCustomHeaders(selectedSheet As Worksheet)
+
+    selectedSheet.Range("A1").Value = "Date"
+    selectedSheet.Range("B1").Value = "Type of Work-Out"
+    selectedSheet.Range("C1").Value = "Work Interval Time (s)"
+    selectedSheet.Range("D1").Value = "Work Interval Distance (m)"
+    selectedSheet.Range("E1").Value = "Work Interval Pace (min/km)"
+    selectedSheet.Range("F1").Value = "Rep Break (s)"
+    
+    '' Adds the data sorted data header
+    selectedSheet.Range("B4").Value = "Interval"
+    selectedSheet.Range("C4").Value = "Step Type"
+    
+
+End Sub
 
 Sub sortDataSheet()
-
     Dim headers() As Variant
     headers = Array("Interval", "Step Type", "Time", "Distance", "Avg Pace", "Best Pace", "Avg HR", "Max HR", "Avg Run Cadence", "Max Run Cadence", "Avg Stride Length", "Avg Vertical Oscillation", "Avg Vertical Ratio")
     
     copyData "Sheet1", "Sort Data", headers
-    
        
 End Sub
 
@@ -58,7 +182,7 @@ Sub recoveryDataSheet()
     Dim colNum As Integer
     
     Dim rdSheet As Worksheet
-    Dim lastRow, i As Long
+    Dim LastRow, i As Long
     
     Set rdSheet = Worksheets("Recovery Data")
         
@@ -73,9 +197,9 @@ Sub recoveryDataSheet()
     '' Checks that it was able to find the column
     If colNum = -1 Then GoTo EndSection
         
-    lastRow = rdSheet.Cells(rdSheet.Rows.Count, colNum).End(xlUp).Row
+    LastRow = rdSheet.Cells(rdSheet.Rows.count, colNum).End(xlUp).Row
     
-    For i = lastRow - 1 To 2 Step -2
+    For i = LastRow - 1 To 2 Step -2
         rdSheet.Rows(i).Delete
     Next i
     
@@ -89,7 +213,7 @@ Sub ranDataSheet()
     Dim colNum As Integer
     
     Dim rdSheet As Worksheet
-    Dim lastRow, i As Long
+    Dim LastRow, i As Long
     
     Set rdSheet = Worksheets("Run Data")
         
@@ -104,9 +228,9 @@ Sub ranDataSheet()
     '' Checks that it was able to find the column
     If colNum = -1 Then GoTo EndSection
         
-    lastRow = rdSheet.Cells(rdSheet.Rows.Count, colNum).End(xlUp).Row
+    LastRow = rdSheet.Cells(rdSheet.Rows.count, colNum).End(xlUp).Row
     
-    For i = lastRow To 2 Step -2
+    For i = LastRow To 2 Step -2
         
         rdSheet.Rows(i).Delete
     
@@ -124,14 +248,14 @@ Sub createChartSheet()
 End Sub
 Sub copyData(srcName As String, dstName As String, colNames() As Variant)
 
-    Dim srcws, dstws As Worksheet
+    Dim srcWS, dstws As Worksheet
     Dim headerName As String
     Dim orgColNum, i As Integer
-    Dim lastRow As Long
+    Dim LastRow As Long
     
     '' Note this is the order of the columns
 
-    Set srcws = Worksheets(srcName)
+    Set srcWS = Worksheets(srcName)
     Set dstws = Worksheets(dstName) ''GlobalSheets("Sort Data")
     
       
@@ -141,16 +265,16 @@ Sub copyData(srcName As String, dstName As String, colNames() As Variant)
         
         ' --- Find the column number by header (first row) ---
         ' Note .Match is case insensitive
-        orgColNum = Application.Match(headerName, srcws.Rows(1), 0)
+        orgColNum = Application.Match(headerName, srcWS.Rows(1), 0)
         
         ' Checks that it was able to find it'
         If (orgColNum <> -1) Then
 
         ' --- Find last used row in that column ---
-        lastRow = srcws.Cells(srcws.Rows.Count, orgColNum).End(xlUp).Row
+        LastRow = srcWS.Cells(srcWS.Rows.count, orgColNum).End(xlUp).Row
         
         ' Copy the column to destination sheet
-        srcws.Range(srcws.Cells(1, orgColNum), srcws.Cells(lastRow, orgColNum)).Copy _
+        srcWS.Range(srcWS.Cells(1, orgColNum), srcWS.Cells(LastRow, orgColNum)).Copy _
                 Destination:=dstws.Cells(1, i + 1)
                 
         End If
@@ -159,9 +283,21 @@ Sub copyData(srcName As String, dstName As String, colNames() As Variant)
     
     '' Removes the last row if it's a summary row
         
-    lastRow = dstws.Cells(dstws.Rows.Count, 1).End(xlUp).Row
-    If (dstws.Cells(lastRow, 1).Value = "Summary") Then
-        dstws.Rows(lastRow).Delete
+    LastRow = dstws.Cells(dstws.Rows.count, 1).End(xlUp).Row
+    If (dstws.Cells(LastRow, 1).Value = "Summary") Then
+        dstws.Rows(LastRow).Delete
     End If
 
 End Sub
+
+
+Function IsInArray(val As String, arr As Variant) As Boolean
+    Dim i As Long
+    For i = LBound(arr) To UBound(arr)
+        If StrComp(val, arr(i), vbTextCompare) = 0 Then
+            IsInArray = True
+            Exit Function
+        End If
+    Next i
+End Function
+
