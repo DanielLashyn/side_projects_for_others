@@ -64,6 +64,8 @@ Sub main()
     createZValue curSheet, savedRow + 1, lastRow, 18, 30
     '' create chart for each table
     
+    CreateMultiLineChart curSheet
+    
     
    
 
@@ -282,8 +284,53 @@ Sub createZValue(selSheet As Worksheet, startRow As Long, endRow As Long, startC
     Next i
 
 End Sub
+Sub CreateMultiLineChart(ws As Worksheet)
 
-
+    Dim chartObj As ChartObject
+    Dim lastRow As Long
+    Dim startRow As Long, endRow As Long
+    Dim xCol As Long
+    Dim seriesCols As Variant
+    Dim i As Long
+    
+   
+    ' Data range setup
+    startRow = 39
+    lastRow = ws.Cells(ws.Rows.count, 20).End(xlUp).row - 2 ' assumes column B has X values (Time)
+    xCol = 20  ' Time column
+    
+    ' Columns to plot as Y series
+    seriesCols = Array(22, 23, 24, 25, 26, 27)
+    
+    ' Add chart object
+    Set chartObj = ws.ChartObjects.Add(Left:=300, Top:=50, Width:=500, Height:=300)
+    chartObj.Chart.ChartType = xlLine
+    
+    ' Clear any existing series
+    ''chartObj.Chart.SeriesCollection.Clear
+    
+    ' Add each series
+    For i = LBound(seriesCols) To UBound(seriesCols)
+        chartObj.Chart.SeriesCollection.NewSeries
+        With chartObj.Chart.SeriesCollection(i + 1)
+            .Name = ws.Cells(startRow - 1, seriesCols(i)).Value ' header as series name
+            .Values = ws.Range(ws.Cells(startRow, seriesCols(i)), ws.Cells(lastRow, seriesCols(i)))
+            .XValues = ws.Range(ws.Cells(startRow, xCol), ws.Cells(lastRow, xCol))
+        End With
+    Next i
+    
+    ' Optional: chart title
+    chartObj.Chart.HasTitle = True
+    chartObj.Chart.ChartTitle.Text = "Run Chart"
+    
+    ' Optional: axis titles
+    chartObj.Chart.Axes(xlCategory).HasTitle = True
+    chartObj.Chart.Axes(xlCategory).AxisTitle.Text = ws.Cells(startRow - 1, xCol).Value ' X-axis name
+    
+    chartObj.Chart.Axes(xlValue).HasTitle = True
+    chartObj.Chart.Axes(xlValue).AxisTitle.Text = "Values"
+    chartObj.Chart.Axes(xlValue).TickLabels.NumberFormat = "0"
+End Sub
 Sub sortDataSheet()
     Dim headers() As Variant
     headers = Array("Interval", "Step Type", "Time", "Distance", "Avg Pace", "Best Pace", "Avg HR", "Max HR", "Avg Run Cadence", "Max Run Cadence", "Avg Stride Length", "Avg Vertical Oscillation", "Avg Vertical Ratio")
