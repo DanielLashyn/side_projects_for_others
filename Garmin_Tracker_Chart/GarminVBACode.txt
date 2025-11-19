@@ -16,6 +16,8 @@ Sub main()
     Dim clientFiles() As String
     Dim curFileName As String
     Dim curSheet As Worksheet
+    Dim lastRow
+    
     
     
     init
@@ -32,14 +34,15 @@ Sub main()
     '' Loads the garmin data in the newly created sheet
     loadGarminData curFileName, curSheet
     
-        
-
+           
     addCustomHeaders curSheet
     '' adds the info runner info
     
 
     '' adds lap info
     setStepType curSheet
+    
+    setIntervalNum curSheet
     
     '' create the rest data
     '' create the ran data
@@ -178,7 +181,7 @@ Sub setStepType(selSheet As Worksheet)
     lastRow = selSheet.Cells(selSheet.Rows.count, "F").End(xlUp).Row '' CHANGE from being hardcoded
     
     
-    For curRow = headerRow + 1 To lastRow
+    For curRow = headerRow + 1 To lastRow - 1
         cellVal = selSheet.Cells(curRow, selCol).Value
         
         t = CDate(CDbl(cellVal))
@@ -196,6 +199,30 @@ Sub setStepType(selSheet As Worksheet)
     End If
         
     Next curRow
+
+End Sub
+
+Sub setIntervalNum(selSheet As Worksheet)
+    Dim lastRow, curRow, headerRow, counter As Long
+    
+    headerRow = 4
+    counter = 0
+    
+    lastRow = selSheet.Cells(selSheet.Rows.count, "C").End(xlUp).Row
+    
+    For curRow = headerRow + 1 To lastRow
+    
+        If (selSheet.Cells(curRow, 3).Value = "Run") Then
+            counter = counter + 1
+        End If
+        selSheet.Cells(curRow, 2).Value = counter
+
+        
+        
+    Next curRow
+    
+    
+    
 
 End Sub
 
