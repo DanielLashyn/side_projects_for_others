@@ -1,0 +1,167 @@
+'' Daniel Lashyn November 2025
+
+Public GlobalSheets As Collection
+Public GarmanWorkBook As Workbook
+
+    
+
+
+'' TODO
+'' - createsheet:
+    '' Add condition to handle if a sheet already has that name
+    
+
+Sub main()
+    init
+    createSheet
+    sortDataSheet
+    recoveryDataSheet
+    
+
+End Sub
+Sub init()
+    Set GarmanWorkBook = ActiveWorkbook
+    Set GlobalSheets = New Collection
+
+
+End Sub
+Sub createSheet()
+    Dim curws As Worksheet
+    
+    Dim wsNames As Variant
+    Dim i As Integer
+    
+    wsNames = Array("Sort Data", "Charts", "Run Data", "Recovery Data")
+    
+    For i = LBound(wsNames) To UBound(wsNames)
+    
+        Set curws = GarmanWorkBook.Worksheets.Add(After:=GarmanWorkBook.Worksheets(GarmanWorkBook.Worksheets.Count))
+        curws.Name = wsNames(i)
+    
+    GlobalSheets.Add curws, wsNames(i)
+    Next i
+    
+End Sub
+
+Sub sortDataSheet()
+
+    Dim headers() As Variant
+    headers = Array("Interval", "Step Type", "Time", "Distance", "Avg Pace", "Best Pace", "Avg HR", "Max HR", "Avg Run Cadence", "Max Run Cadence", "Avg Stride Length", "Avg Vertical Oscillation", "Avg Vertical Ratio")
+    
+    copyData "Sheet1", "Sort Data", headers
+    
+       
+End Sub
+
+Sub recoveryDataSheet()
+    Dim headers() As Variant
+    Dim colNum As Integer
+    
+    Dim rdSheet As Worksheet
+    Dim lastRow, i As Long
+    
+    Set rdSheet = Worksheets("Recovery Data")
+        
+    headers = Array("Interval", "Step Type", "Time", "Distance", "Avg Pace", "Best Pace", "Avg HR", "Max HR", "Avg Run Cadence", "Max Run Cadence", "Avg Stride Length", "Avg Vertical Oscillation", "Avg Vertical Ratio")
+    
+    copyData "Sheet1", "Recovery Data", headers
+    
+    colNum = -1
+    
+    colNum = Application.Match("Step Type", rdSheet.Rows(1), 0)
+    
+    '' Checks that it was able to find the column
+    If colNum = -1 Then GoTo EndSection
+        
+    lastRow = rdSheet.Cells(rdSheet.Rows.Count, colNum).End(xlUp).Row
+    
+    For i = lastRow - 1 To 2 Step -2
+        rdSheet.Rows(i).Delete
+    Next i
+    
+
+EndSection:
+
+End Sub
+
+Sub ranDataSheet()
+    Dim headers() As Variant
+    Dim colNum As Integer
+    
+    Dim rdSheet As Worksheet
+    Dim lastRow, i As Long
+    
+    Set rdSheet = Worksheets("Run Data")
+        
+    headers = Array("Interval", "Step Type", "Time", "Distance", "Avg Pace", "Best Pace", "Avg HR", "Max HR", "Avg Run Cadence", "Max Run Cadence", "Avg Stride Length", "Avg Vertical Oscillation", "Avg Vertical Ratio")
+    
+    copyData "Sheet1", "Run Data", headers
+    
+    colNum = -1
+    
+    colNum = Application.Match("Step Type", rdSheet.Rows(1), 0)
+    
+    '' Checks that it was able to find the column
+    If colNum = -1 Then GoTo EndSection
+        
+    lastRow = rdSheet.Cells(rdSheet.Rows.Count, colNum).End(xlUp).Row
+    
+    For i = lastRow To 2 Step -2
+        
+        rdSheet.Rows(i).Delete
+    
+    
+    Next i
+        
+    
+    
+EndSection:
+
+End Sub
+
+Sub createChartSheet()
+
+End Sub
+Sub copyData(srcName As String, dstName As String, colNames() As Variant)
+
+    Dim srcws, dstws As Worksheet
+    Dim headerName As String
+    Dim orgColNum, i As Integer
+    Dim lastRow As Long
+    
+    '' Note this is the order of the columns
+
+    Set srcws = Worksheets(srcName)
+    Set dstws = Worksheets(dstName) ''GlobalSheets("Sort Data")
+    
+      
+    For i = LBound(colNames) To UBound(colNames)
+        headerName = colNames(i)
+        orgColNum = -1
+        
+        ' --- Find the column number by header (first row) ---
+        ' Note .Match is case insensitive
+        orgColNum = Application.Match(headerName, srcws.Rows(1), 0)
+        
+        ' Checks that it was able to find it'
+        If (orgColNum <> -1) Then
+
+        ' --- Find last used row in that column ---
+        lastRow = srcws.Cells(srcws.Rows.Count, orgColNum).End(xlUp).Row
+        
+        ' Copy the column to destination sheet
+        srcws.Range(srcws.Cells(1, orgColNum), srcws.Cells(lastRow, orgColNum)).Copy _
+                Destination:=dstws.Cells(1, i + 1)
+                
+        End If
+           
+   Next i
+    
+    '' Removes the last row if it's a summary row
+        
+    lastRow = dstws.Cells(dstws.Rows.Count, 1).End(xlUp).Row
+    If (dstws.Cells(lastRow, 1).Value = "Summary") Then
+        dstws.Rows(lastRow).Delete
+    End If
+
+End Sub
