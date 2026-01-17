@@ -1,7 +1,17 @@
 '' Daniel Lashyn November 2025
-
-
 Const CLIENT_DATA_FOLDER As String = "data"
+
+Public SORT_DATA_FILE_NAME_COL As Integer
+Public SORT_DATA_DATE_COL As Integer
+Public SORT_DATA_HEADING_ROW As Integer
+Public SORT_DATA_STEP_TYPE_COL As Integer
+Public SORT_DATA_INTERVAL_COL As Integer
+Public SORT_DATA_IMPORT_DATA_COL As Integer
+
+Public IMPORT_HEADERS As Variant
+
+Public startingInputRow As Long
+Public totalImportRows As Long
 
 Public GlobalSheets As Collection
 Public GarmanWorkBook As Workbook
@@ -13,58 +23,40 @@ Public GarmanWorkBook As Workbook
 '' Check hardvalues
 '' add formating to the Summary and Z Value Cells
 
-
-
 Sub main()
 
     Dim clientFiles() As String
     Dim curFileName As String
     Dim curSheet As Worksheet
-    Dim lastRow As Long
-    Dim savedRow As Long
-    
-    
     
     
     init
     ''createSheet
+    Set curSheet = Worksheets("Sort Data")
+        
+    DisplayHeaders curSheet
     
-    clientFiles = GetFileInDirectory
+    startingInputRow = curSheet.Cells(curSheet.Rows.count, 1).End(xlUp).row + 1
+    
+    clientFiles = GetFileInDirectory(CLIENT_DATA_FOLDER)
     
     curFileName = ActiveWorkbook.Path & "\" & CLIENT_DATA_FOLDER & "\" & clientFiles(0)
     
     
-    Set curSheet = Worksheets("Sort Data")
-    
+
     
     '' Loads the garmin data in the newly created sheet
     loadGarminData curFileName, curSheet
-    
-           
-    addCustomHeaders curSheet
-    '' adds the info runner info
-    
+      
 
     '' adds Steptype and interval number info
     setStepType curSheet
     setIntervalNum curSheet
+    SetFileNameColumn curSheet, clientFiles(0)
+    SetDateColumn curSheet, "Jan 14th, 2025"
     
-    lastRow = 0
-    
-    '' create the rest data
-     createStepTables "Recovery", curSheet, 18, 4, lastRow
-     createAverages curSheet, 4 + 1, lastRow, 18, 30
-     
-
-          
-    '' create the run data
-    savedRow = lastRow + 4
-    createStepTables "Run", curSheet, 18, savedRow, lastRow
-    createAverages curSheet, savedRow + 1, lastRow, 18, 30
-    createZValue curSheet, savedRow + 1, lastRow, 18, 30
-    '' create chart for each table
-    
-    CreateMultiLineChart curSheet
+   
+    ''CreateMultiLineChart curSheet
     
     
    
@@ -73,6 +65,18 @@ End Sub
 Sub init()
     Set GarmanWorkBook = ActiveWorkbook
     Set GlobalSheets = New Collection
+    SORT_DATA_HEADING_ROW = 2
+    
+    SORT_DATA_FILE_NAME_COL = 1
+    SORT_DATA_DATE_COL = 2
+    SORT_DATA_INTERVAL_COL = 3
+    SORT_DATA_STEP_TYPE_COL = 4
+    SORT_DATA_IMPORT_DATA_COL = SORT_DATA_STEP_TYPE_COL + 1
+    
+    startingInputRow = SORT_DATA_HEADING_ROW + 1
+    totalImportRows = 0
+
+    IMPORT_HEADERS = Array("Time", "Distance", "Avg Pace", "Best Pace", "Avg HR", "Max HR", "Avg Run Cadence", "Max Run Cadence", "Avg Stride Length", "Avg Vertical Oscillation", "Avg Vertical Ratio")
 End Sub
 Sub createSheet()
     Dim curws As Worksheet
@@ -91,79 +95,61 @@ Sub createSheet()
     Next i
     
 End Sub
-' Gets the name of all the .csv files in the CLIENT_DATA_FOLDER'
-Function GetFileInDirectory() As Variant
-    Dim selectedDir As String
-    Dim fileName As String
-    Dim files() As String
-    Dim count As Integer
-    
-    selectedDir = ActiveWorkbook.Path & "\" & CLIENT_DATA_FOLDER & "\"
-    
-    
-    fileName = Dir(selectedDir & "*.csv")
-    
-    
-    count = 0
-    
-    Do While fileName <> ""
-        ReDim Preserve files(count)
-        files(count) = fileName
-        count = count + 1
-        fileName = Dir
-    Loop
-    
-    'Ends the program if there were no .xlsx files found in the the CLIENT_DATA_FOLDER'
-    If count <= 0 Then
-        MsgBox "Add .xlsx files to " & CLIENT_DATA_FOLDER, vbOKOnly, "Error: No .xls found"
-        End
-    End If
+Sub DisplayHeaders(destinationWS As Worksheet)
+    Dim i As Long
         
-    GetFileInDirectory = files
-End Function
+    destinationWS.Cells(SORT_DATA_HEADING_ROW, SORT_DATA_FILE_NAME_COL).Value = "File Name"
+    destinationWS.Cells(SORT_DATA_HEADING_ROW, SORT_DATA_DATE_COL).Value = "Date"
+    destinationWS.Cells(SORT_DATA_HEADING_ROW, SORT_DATA_INTERVAL_COL).Value = "Interval"
+    destinationWS.Cells(SORT_DATA_HEADING_ROW, SORT_DATA_STEP_TYPE_COL).Value = "Step Type"
+    
+    For i = LBound(IMPORT_HEADERS) To UBound(IMPORT_HEADERS)
+        destinationWS.Cells(SORT_DATA_HEADING_ROW, SORT_DATA_IMPORT_DATA_COL + i).Value = IMPORT_HEADERS(i)
+    Next i
 
-Sub loadGarminData(filePath As String, destWS As Worksheet)
+End Sub
+
+Sub loadGarminData(filePath As String, destinationWS As Worksheet)
     Dim srcCSV As Workbook
     Dim srcCSVws As Worksheet
     Dim allowedCols As Variant
-    Dim col, csvLastCol, csv, lastRow, nextDestCol As Long
+    Dim col, csvLastCol, csv, lastRow, destinationColumn As Long
     Dim Header As String
-    
     
     
     Set srcCSV = Workbooks.Open(fileName:=filePath)
     Set srcCSVws = srcCSV.Sheets(1)
     
     csvLastCol = srcCSVws.Cells(1, srcCSVws.Columns.count).End(xlToLeft).Column
+    csvLastRow = srcCSVws.Cells(srcCSVws.Rows.count, 1).End(xlUp).row
+    
+    'Removes the summary Row'
+    If StrComp(srcCSVws.Cells(csvLastRow, 1).Value(), "Summary", vbTextCompare) = 0 Then
+    
+        csvLastRow = csvLastRow - 1
+    End If
     
     
-    
-    allowedCols = Array("Interval", "Step Type", "Time", "Distance", "Avg Pace", "Best Pace", "Avg HR", "Max HR", "Avg Run Cadence", "Max Run Cadence", "Avg Stride Length", "Avg Vertical Oscillation", "Avg Vertical Ratio")
-    nextDestCol = destWS.Range("D4").Column
+    destinationColumn = SORT_DATA_IMPORT_DATA_COL
     
     ' Loop all source CSV columns
     For col = 1 To csvLastCol
         Header = srcCSVws.Cells(1, col).Value
         
-        If IsInArray(Header, allowedCols) Then
+        'copies over the columns that are in IMPORT HEADERS'
+        If IsInArray(Header, IMPORT_HEADERS) Then
             ' Copy the entire column to next available destination col
             
-            csvLastRow = srcCSVws.Cells(srcCSVws.Rows.count, col).End(xlUp).row
-            srcCSVws.Range(srcCSVws.Cells(1, col), srcCSVws.Cells(csvLastRow, col)).Copy _
-        destWS.Cells(4, nextDestCol)
-            nextDestCol = nextDestCol + 1
+            
+            srcCSVws.Range(srcCSVws.Cells(2, col), srcCSVws.Cells(csvLastRow, col)).Copy _
+        destinationWS.Cells(startingInputRow, destinationColumn)
+            destinationColumn = destinationColumn + 1
         End If
     Next col
 
-    ' Copy all used data from the CSV
-    ''srcCSV.Sheets(1).UsedRange.Copy destWS.Range("D4")
-    
-    
-    
-    
-
-    ' Close CSV without saving
     srcCSV.Close SaveChanges:=False
+    
+    totalImportRows = csvLastRow - 1
       
 End Sub
 
@@ -175,11 +161,7 @@ Sub addCustomHeaders(selectedSheet As Worksheet)
     selectedSheet.Range("D1").Value = "Work Interval Distance (m)"
     selectedSheet.Range("E1").Value = "Work Interval Pace (min/km)"
     selectedSheet.Range("F1").Value = "Rep Break (s)"
-    
-    '' Adds the data sorted data header
-    selectedSheet.Range("B4").Value = "Interval"
-    selectedSheet.Range("C4").Value = "Step Type"
-    
+        
 End Sub
 Sub setStepType(selSheet As Worksheet)
         
@@ -189,25 +171,23 @@ Sub setStepType(selSheet As Worksheet)
     
     Dim t As Date
     
-        
+
+    
     threshold = TimeValue("07:00:00") '' threshold is 7 mins
     
-    selCol = 6
-    headerRow = 4
-    lastRow = selSheet.Cells(selSheet.Rows.count, "F").End(xlUp).row '' CHANGE from being hardcoded
+    selCol = 7
     
-    
-    For curRow = headerRow + 1 To lastRow - 1
+    For curRow = startingInputRow To startingInputRow + totalImportRows - 1
         cellVal = selSheet.Cells(curRow, selCol).Value
         
         t = CDate(CDbl(cellVal))
         
         If IsDate(t) Then
             If TimeValue(t) < threshold Then
-            selSheet.Cells(curRow, 3).Value = "Run"
+            selSheet.Cells(curRow, SORT_DATA_STEP_TYPE_COL).Value = "Run"
             
         Else
-            selSheet.Cells(curRow, 3).Value = "Recovery"
+            selSheet.Cells(curRow, SORT_DATA_STEP_TYPE_COL).Value = "Recovery"
         End If
         
     End If
@@ -217,245 +197,37 @@ Sub setStepType(selSheet As Worksheet)
 End Sub
 
 Sub setIntervalNum(selSheet As Worksheet)
-    Dim lastRow, curRow, headerRow, counter As Long
+    Dim lastRow, curRow, counter As Long
     
-    headerRow = 4
     counter = 0
+       
+    For curRow = startingInputRow To startingInputRow + totalImportRows - 1
     
-    lastRow = selSheet.Cells(selSheet.Rows.count, "C").End(xlUp).row
-    
-    For curRow = headerRow + 1 To lastRow
-    
-        If (selSheet.Cells(curRow, 3).Value = "Run") Then
+        If (selSheet.Cells(curRow, SORT_DATA_STEP_TYPE_COL).Value = "Run") Then
             counter = counter + 1
         End If
-        selSheet.Cells(curRow, 2).Value = counter
+        selSheet.Cells(curRow, SORT_DATA_INTERVAL_COL).Value = counter
 
     Next curRow
 
 End Sub
-Sub createStepTables(stepType As String, selSheet As Worksheet, startCol As Long, startRow As Long, ByRef finalRow As Long)
-    Dim lastRow, curRow, headerRow, stepRow As Long
+Sub SetFileNameColumn(selSheet As Worksheet, fileName As String)
+    Dim curRow As Long
     
+    For curRow = startingInputRow To startingInputRow + totalImportRows - 1
     
-    stepRow = startRow + 1
-    headerRow = 4
-    lastRow = selSheet.Cells(selSheet.Rows.count, "C").End(xlUp).row
-    
-    
-    selSheet.Range("B4:N4").Copy Destination:=selSheet.Cells(startRow, startCol)
-    
-    For curRow = headerRow + 1 To lastRow
-        If (selSheet.Cells(curRow, "C").Value = stepType) Then
-            selSheet.Range(selSheet.Cells(curRow, "B"), _
-               selSheet.Cells(curRow, "N")).Copy _
-               Destination:=selSheet.Cells(stepRow, startCol)
-            stepRow = stepRow + 1
-        End If
-           
-    
+        selSheet.Cells(curRow, SORT_DATA_FILE_NAME_COL).Value = fileName
+
     Next curRow
-    
-    finalRow = stepRow
-    
-End Sub
-Sub createAverages(selSheet As Worksheet, startRow As Long, endRow As Long, startColumn As Long, endColumn As Long)
-    Dim i As Long
-    
-    
-    selSheet.Cells(endRow, startColumn).Value = "AVERAGES"
-   
-    For i = startColumn + 2 To endColumn
-        ''selSheet.Cells(endRow, i).FormulaR1C1 = "=AVERAGE(R[-29]C:R[-1]C)"
-        
-        selSheet.Cells(endRow, i).FormulaR1C1 = _
-        "=AVERAGE(R" & startRow & "C" & i & ":R" & endRow - 1 & "C" & i & ")"
-    Next i
 
 End Sub
-Sub createZValue(selSheet As Worksheet, startRow As Long, endRow As Long, startColumn As Long, endColumn As Long)
+Sub SetDateColumn(selSheet As Worksheet, enteredDate As String)
+    Dim curRow As Long
+  
+    For curRow = startingInputRow To startingInputRow + totalImportRows - 1
     
-    selSheet.Cells(endRow + 1, startColumn).Value = "STANDARD DEVIATIONS"
-    For i = startColumn + 2 To endColumn
-        ''selSheet.Cells(endRow, i).FormulaR1C1 = "=AVERAGE(R[-29]C:R[-1]C)"
-        
-        selSheet.Cells(endRow + 1, i).FormulaR1C1 = _
-        "=STDEV(R" & startRow & "C" & i & ":R" & endRow - 1 & "C" & i & ")"
-    Next i
+        selSheet.Cells(curRow, SORT_DATA_DATE_COL).Value = enteredDate
+
+    Next curRow
 
 End Sub
-Sub CreateMultiLineChart(ws As Worksheet)
-
-    Dim chartObj As ChartObject
-    Dim lastRow As Long
-    Dim startRow As Long, endRow As Long
-    Dim xCol As Long
-    Dim seriesCols As Variant
-    Dim i As Long
-    
-   
-    ' Data range setup
-    startRow = 39
-    lastRow = ws.Cells(ws.Rows.count, 20).End(xlUp).row - 2 ' assumes column B has X values (Time)
-    xCol = 20  ' Time column
-    
-    ' Columns to plot as Y series
-    seriesCols = Array(22, 23, 24, 25, 26, 27)
-    
-    ' Add chart object
-    Set chartObj = ws.ChartObjects.Add(Left:=300, Top:=50, Width:=500, Height:=300)
-    chartObj.Chart.ChartType = xlLine
-    
-    ' Clear any existing series
-    ''chartObj.Chart.SeriesCollection.Clear
-    
-    ' Add each series
-    For i = LBound(seriesCols) To UBound(seriesCols)
-        chartObj.Chart.SeriesCollection.NewSeries
-        With chartObj.Chart.SeriesCollection(i + 1)
-            .Name = ws.Cells(startRow - 1, seriesCols(i)).Value ' header as series name
-            .Values = ws.Range(ws.Cells(startRow, seriesCols(i)), ws.Cells(lastRow, seriesCols(i)))
-            .XValues = ws.Range(ws.Cells(startRow, xCol), ws.Cells(lastRow, xCol))
-        End With
-    Next i
-    
-    ' Optional: chart title
-    chartObj.Chart.HasTitle = True
-    chartObj.Chart.ChartTitle.Text = "Run Chart"
-    
-    ' Optional: axis titles
-    chartObj.Chart.Axes(xlCategory).HasTitle = True
-    chartObj.Chart.Axes(xlCategory).AxisTitle.Text = ws.Cells(startRow - 1, xCol).Value ' X-axis name
-    
-    chartObj.Chart.Axes(xlValue).HasTitle = True
-    chartObj.Chart.Axes(xlValue).AxisTitle.Text = "Values"
-    chartObj.Chart.Axes(xlValue).TickLabels.NumberFormat = "0"
-End Sub
-Sub sortDataSheet()
-    Dim headers() As Variant
-    headers = Array("Interval", "Step Type", "Time", "Distance", "Avg Pace", "Best Pace", "Avg HR", "Max HR", "Avg Run Cadence", "Max Run Cadence", "Avg Stride Length", "Avg Vertical Oscillation", "Avg Vertical Ratio")
-    
-    copyData "Sheet1", "Sort Data", headers
-       
-End Sub
-
-Sub recoveryDataSheet()
-    Dim headers() As Variant
-    Dim colNum As Integer
-    
-    Dim rdSheet As Worksheet
-    Dim lastRow, i As Long
-    
-    Set rdSheet = Worksheets("Recovery Data")
-        
-    headers = Array("Interval", "Step Type", "Time", "Distance", "Avg Pace", "Best Pace", "Avg HR", "Max HR", "Avg Run Cadence", "Max Run Cadence", "Avg Stride Length", "Avg Vertical Oscillation", "Avg Vertical Ratio")
-    
-    copyData "Sheet1", "Recovery Data", headers
-    
-    colNum = -1
-    
-    colNum = Application.Match("Step Type", rdSheet.Rows(1), 0)
-    
-    '' Checks that it was able to find the column
-    If colNum = -1 Then GoTo EndSection
-        
-    lastRow = rdSheet.Cells(rdSheet.Rows.count, colNum).End(xlUp).row
-    
-    For i = lastRow - 1 To 2 Step -2
-        rdSheet.Rows(i).Delete
-    Next i
-    
-EndSection:
-
-End Sub
-Sub ranDataSheet()
-    Dim headers() As Variant
-    Dim colNum As Integer
-    
-    Dim rdSheet As Worksheet
-    Dim lastRow, i As Long
-    
-    Set rdSheet = Worksheets("Run Data")
-        
-    headers = Array("Interval", "Step Type", "Time", "Distance", "Avg Pace", "Best Pace", "Avg HR", "Max HR", "Avg Run Cadence", "Max Run Cadence", "Avg Stride Length", "Avg Vertical Oscillation", "Avg Vertical Ratio")
-    
-    copyData "Sheet1", "Run Data", headers
-    
-    colNum = -1
-    
-    colNum = Application.Match("Step Type", rdSheet.Rows(1), 0)
-    
-    '' Checks that it was able to find the column
-    If colNum = -1 Then GoTo EndSection
-        
-    lastRow = rdSheet.Cells(rdSheet.Rows.count, colNum).End(xlUp).row
-    
-    For i = lastRow To 2 Step -2
-        
-        rdSheet.Rows(i).Delete
-    
-    
-    Next i
-        
-    
-    
-EndSection:
-
-End Sub
-
-Sub createChartSheet()
-
-End Sub
-Sub copyData(srcName As String, dstName As String, colNames() As Variant)
-
-    Dim srcWS, dstws As Worksheet
-    Dim headerName As String
-    Dim orgColNum, i As Integer
-    Dim lastRow As Long
-    
-    '' Note this is the order of the columns
-
-    Set srcWS = Worksheets(srcName)
-    Set dstws = Worksheets(dstName) ''GlobalSheets("Sort Data")
-    
-      
-    For i = LBound(colNames) To UBound(colNames)
-        headerName = colNames(i)
-        orgColNum = -1
-        
-        ' --- Find the column number by header (first row) ---
-        ' Note .Match is case insensitive
-        orgColNum = Application.Match(headerName, srcWS.Rows(1), 0)
-        
-        ' Checks that it was able to find it'
-        If (orgColNum <> -1) Then
-
-        ' --- Find last used row in that column ---
-        lastRow = srcWS.Cells(srcWS.Rows.count, orgColNum).End(xlUp).row
-        
-        ' Copy the column to destination sheet
-        srcWS.Range(srcWS.Cells(1, orgColNum), srcWS.Cells(lastRow, orgColNum)).Copy _
-                Destination:=dstws.Cells(1, i + 1)
-                
-        End If
-           
-   Next i
-    
-    '' Removes the last row if it's a summary row
-        
-    lastRow = dstws.Cells(dstws.Rows.count, 1).End(xlUp).row
-    If (dstws.Cells(lastRow, 1).Value = "Summary") Then
-        dstws.Rows(lastRow).Delete
-    End If
-
-End Sub
-Function IsInArray(val As String, arr As Variant) As Boolean
-    Dim i As Long
-    For i = LBound(arr) To UBound(arr)
-        If StrComp(val, arr(i), vbTextCompare) = 0 Then
-            IsInArray = True
-            Exit Function
-        End If
-    Next i
-End Function
-
