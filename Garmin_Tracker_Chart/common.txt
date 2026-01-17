@@ -1,0 +1,42 @@
+' Gets the name of all the .csv files in the dataFolder'
+Function GetFileInDirectory(dataFolder As String) As Variant
+    Dim selectedDir As String
+    Dim fileName As String
+    Dim files() As String
+    Dim count As Integer
+    
+    selectedDir = ActiveWorkbook.Path & "\" & dataFolder & "\"
+    
+    
+    fileName = Dir(selectedDir & "*.csv")
+    
+    
+    count = 0
+    
+    Do While fileName <> ""
+        ReDim Preserve files(count)
+        files(count) = fileName
+        count = count + 1
+        fileName = Dir
+    Loop
+    
+    'Ends the program if there were no .xlsx files found in the the dataFolder'
+    If count <= 0 Then
+        MsgBox "Add .xlsx files to " & dataFolder, vbOKOnly, "Error: No .xls found"
+        End
+    End If
+        
+    GetFileInDirectory = files
+End Function
+
+
+Function IsInArray(val As String, arr As Variant) As Boolean
+    Dim i As Long
+    For i = LBound(arr) To UBound(arr)
+        If StrComp(val, arr(i), vbTextCompare) = 0 Then
+            IsInArray = True
+            Exit Function
+        End If
+    Next i
+End Function
+
