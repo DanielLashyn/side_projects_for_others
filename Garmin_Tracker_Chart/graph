@@ -1,0 +1,130 @@
+Sub CreateDistanceChart()
+    Dim ws As Worksheet
+    Dim lastRow As Long
+    Dim chartObj As ChartObject
+    
+    ' Set the worksheet
+    Set ws = ThisWorkbook.Sheets("Sort Data")
+    
+    ' Find the last row with data
+    lastRow = ws.Cells(ws.Rows.count, "A").End(xlUp).Row
+    
+    ' Delete any existing chart named "DistanceChart"
+    For Each chartObj In ws.ChartObjects
+        If chartObj.Name = "DistanceChart" Then
+            chartObj.Delete
+        End If
+    Next chartObj
+    
+    ' Add a new chart
+    Set chartObj = ws.ChartObjects.add(Left:=300, Top:=50, Width:=500, Height:=300)
+    chartObj.Name = "DistanceChart"
+    
+    ' Set chart type
+    chartObj.Chart.ChartType = xlLineMarkers
+    
+    ' Set chart data
+    With chartObj.Chart
+        .SetSourceData Source:=ws.range("C1:C" & lastRow & ",F1:F" & lastRow)
+        .SeriesCollection.NewSeries
+        .SeriesCollection(1).Name = "Distance"
+        .SeriesCollection(1).XValues = ws.range("C2:C" & lastRow)  ' Interval
+        .SeriesCollection(1).Values = ws.range("F2:F" & lastRow)   ' Distance
+        
+        ' Chart title and axes
+        .HasTitle = True
+        .ChartTitle.Text = "Distance per Interval"
+        .Axes(xlCategory).HasTitle = True
+        .Axes(xlCategory).AxisTitle.Text = "Interval"
+        .Axes(xlValue).HasTitle = True
+        .Axes(xlValue).AxisTitle.Text = "Distance"
+    End With
+    
+    MsgBox "Distance chart created successfully!", vbInformation
+End Sub
+Sub CreateDistanceChartMultipleFiles()
+    Dim ws As Worksheet
+    Dim lastRow As Long
+    Dim chartObj As ChartObject
+    Dim dict As Object
+    Dim i As Long
+    Dim fileName As Variant
+    Dim seriesCount As Long
+    
+    ' Set worksheet
+    Set ws = ThisWorkbook.Sheets("Sort Data")
+    
+    ' Find last row
+    lastRow = ws.Cells(ws.Rows.count, "A").End(xlUp).Row
+    
+    ' Delete existing chart named "DistanceChart" if exists
+    For Each chartObj In ws.ChartObjects
+        If chartObj.Name = "DistanceChart" Then
+            chartObj.Delete
+        End If
+    Next chartObj
+    
+    ' Create dictionary to store unique file names
+    Set dict = CreateObject("Scripting.Dictionary")
+    
+    ' Loop through File Name column (assume column A)
+    For i = 2 To lastRow
+        fileName = ws.Cells(i, "A").value
+        If Not dict.exists(fileName) Then
+            dict.add fileName, Nothing
+        End If
+    Next i
+    
+    ' Add chart
+    Set chartObj = ws.ChartObjects.add(Left:=300, Top:=50, Width:=600, Height:=350)
+    chartObj.Name = "DistanceChart"
+    chartObj.Chart.ChartType = xlLineMarkers
+    
+    ' Add a series for each file
+    seriesCount = 1
+    For Each fileName In dict.keys
+        ' Find rows for this file
+        Dim intervalRange As range, distanceRange As range
+        Dim firstRow As Long, lastRowFile As Long
+        
+        ' Initialize
+        firstRow = 0
+        lastRowFile = 0
+        
+        ' Find the first and last row for this file
+        For i = 2 To lastRow
+            If ws.Cells(i, "A").value = fileName Then
+                If firstRow = 0 Then firstRow = i
+                lastRowFile = i
+            End If
+        Next i
+        
+        ' Set ranges
+        Set intervalRange = ws.range("C" & firstRow & ":C" & lastRowFile)
+        Set distanceRange = ws.range("F" & firstRow & ":F" & lastRowFile)
+        
+        ' Add series
+        With chartObj.Chart.SeriesCollection.NewSeries
+            .Name = fileName
+            .XValues = intervalRange
+            .Values = distanceRange
+        End With
+        seriesCount = seriesCount + 1
+    Next fileName
+    
+    ' Chart title and axes
+    With chartObj.Chart
+        .HasTitle = True
+        .ChartTitle.Text = "Distance per Interval"
+        .Axes(xlCategory).HasTitle = True
+        .Axes(xlCategory).AxisTitle.Text = "Interval"
+        .Axes(xlCategory).CategoryType = xlCategoryScale
+        .Axes(xlValue).HasTitle = True
+        .Axes(xlValue).AxisTitle.Text = "Distance"
+        
+       ' .Legend.Position = xlLegendPositionBottom
+    End With
+    
+    chartObj.Placement = xlFreeFloating
+    
+End Sub
