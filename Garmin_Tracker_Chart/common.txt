@@ -40,3 +40,196 @@ Function IsInArray(val As String, arr As Variant) As Boolean
     Next i
 End Function
 
+Function DoesSheetExist(sheetName As String) As Boolean
+
+    Dim ws As Worksheet
+    DoesSheetExist = False
+    
+    For Each ws In ActiveWorkbook.Worksheets
+        If StrComp(ws.Name, sheetName, vbTextCompare) = 0 Then
+            DoesSheetExist = True
+            Exit Function
+        End If
+    Next ws
+End Function
+
+Sub createTable(ws As Worksheet, startRow As Long, startCol As Long, RowsToTrim As Long, tblName As String)
+    
+    Dim dataRange As range
+    Dim lastRow As Long, LastCol As Long
+    Dim tableName As String
+    tableName = tblName & Format(Now, "yyyymmddHHmmss")
+
+    ws.Activate
+    clearTable ws ' if there is another table it will clear it
+    
+    '' On Error GoTo ErrHandler
+    lastRow = ws.Cells.Find("*", SearchOrder:=xlByRows, SearchDirection:=xlPrevious).Row
+    LastCol = ws.Cells.Find("*", SearchOrder:=xlByColumns, SearchDirection:=xlPrevious).Column
+    
+    Set dataRange = ws.range(ws.Cells(startRow, startCol), ws.Cells(lastRow - RowsToTrim, LastCol))
+    
+    Application.CutCopyMode = False
+    
+    ws.ListObjects.add(xlSrcRange, dataRange, , xlYes).Name = _
+        tableName
+    ws.ListObjects(tableName).TableStyle = "TableStylelight21"
+    GoTo EndSub
+    
+
+ErrHandler:
+    End
+    
+EndSub:
+    
+    
+End Sub
+
+Sub clearMyTable(ws As Worksheet)
+    clearTable ws
+End Sub
+
+Sub clearTable(ws As Worksheet)
+    Dim tbl As ListObject
+    Dim i As Long
+    
+    If ws.ListObjects.count = 0 Then
+        Exit Sub
+    End If
+    
+    Set tbl = ws.ListObjects(1)
+
+    ' Set worksheet and your target range
+
+    If Not tbl Is Nothing Then
+        
+        Dim oldRange As range
+        Set oldRange = tbl.range
+
+        tbl.Unlist ' Turns it into a normal range
+
+        ' Clear table formatting (reset to Normal style)
+        With oldRange
+            .Interior.ColorIndex = xlColorIndexNone  ' Clear fill color
+            .Font.ColorIndex = xlColorIndexAutomatic ' Reset font color
+            .Font.Bold = False                       ' Remove bold
+            .Borders.lineStyle = xlNone              ' Clear borders
+            .Style = "Normal"                        ' Reset to Normal style
+        End With
+    End If
+
+
+End Sub
+Sub AutoFitAllTables(ws As Worksheet)
+    Dim tbl As ListObject
+    
+    ' Loop through all tables on the worksheet
+    For Each tbl In ws.ListObjects
+        ' Auto-fit all columns of the table
+        tbl.range.Columns.AutoFit
+    Next tbl
+End Sub
+
+Sub ApplyBorders(rng As range, _
+                       borderArray As Variant, _
+                       Optional lineStyle As XlLineStyle = xlContinuous, _
+                       Optional color As Long = vbBlack, _
+                       Optional weight As XlBorderWeight = xlThin)
+    
+    Dim borderType As Variant
+    
+    ' Remove diagonal borders if not included
+    If IsError(Application.Match(xlDiagonalDown, borderArray, 0)) Then
+        rng.Borders(xlDiagonalDown).lineStyle = xlNone
+    End If
+    If IsError(Application.Match(xlDiagonalUp, borderArray, 0)) Then
+        rng.Borders(xlDiagonalUp).lineStyle = xlNone
+    End If
+    
+    ' Apply only borders specified in the array
+    For Each borderType In borderArray
+        With rng.Borders(borderType)
+            .lineStyle = lineStyle
+            .color = color
+            .weight = weight
+        End With
+    Next borderType
+End Sub
+
+Function GetSheet(sheetName As String) As Worksheet
+    Dim ws As Worksheet
+    On Error Resume Next   ' in case sheet does not exist
+    Set ws = ActiveWorkbook.Worksheets(sheetName)
+    On Error GoTo 0
+    Set GetSheet = ws     ' will be Nothing if sheet not found
+End Function
+
+Function GetFirstTable(ws As Worksheet) As ListObject
+    If ws.ListObjects.count > 0 Then
+        Set GetFirstTable = ws.ListObjects(1)
+    Else
+        Set GetFirstTable = Nothing  ' No table found
+    End If
+End Function
+
+Function GetTableByPartialName(ws As Worksheet, partialName As String) As ListObject
+    Dim tbl As ListObject
+    
+    For Each tbl In ws.ListObjects
+        ' Check if the table name contains the partial string (case-insensitive)
+        If InStr(1, tbl.Name, partialName, vbTextCompare) > 0 Then
+            Set GetTableByPartialName = tbl
+            Exit Function
+        End If
+    Next tbl
+    
+    ' No table found
+    Set GetTableByPartialName = Nothing
+End Function
+
+
+Sub FormatColumnDecimals(ws As Worksheet, colNum As Long, decimalPlaces As Long)
+    
+     ws.Columns(colNum).NumberFormat = "0." & String(decimalPlaces, "0")
+End Sub
+
+Sub FormatColumnDecimalsRange(ws As Worksheet, colNumStart As Long, colNumEnd As Long, decimalPlaces As Long)
+    Dim i As Long
+
+    For i = colNumStart To colNumEnd
+        FormatColumnDecimals ws, i, decimalPlaces
+    Next i
+
+End Sub
+
+Sub FormatRunnerTime(ws As Worksheet, headerName As String)
+
+    Dim tbl As ListObject
+    Dim colNum As Long
+    Dim found As Boolean
+    Dim textFormat As String
+    
+    found = False
+    
+    If StrComp(headerName, "time", vbTextCompare) = 0 Then
+        textFormat = "mm:ss.0"
+    Else
+        textFormat = "h:mm"
+    End If
+
+    
+    ' Loop through all tables on the sheet
+    For Each tbl In ws.ListObjects
+        ' Try to find the header
+        On Error Resume Next
+        colNum = tbl.ListColumns(headerName).Index
+        On Error GoTo 0
+        
+        If colNum > 0 Then
+            found = True
+            ' Format the entire data body of that column
+            tbl.ListColumns(colNum).DataBodyRange.NumberFormat = textFormat
+            Exit For
+        End If
+    Next tbl
+End Sub
