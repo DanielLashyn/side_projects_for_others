@@ -1,9 +1,10 @@
 '' Daniel Lashyn November 2025
 Const CLIENT_DATA_FOLDER As String = "data"
 
+Public SORT_DATA_HEADING_ROW As Integer
+
 Public SORT_DATA_FILE_NAME_COL As Integer
 Public SORT_DATA_DATE_COL As Integer
-Public SORT_DATA_HEADING_ROW As Integer
 Public SORT_DATA_STEP_TYPE_COL As Integer
 Public SORT_DATA_INTERVAL_COL As Integer
 Public SORT_DATA_IMPORT_DATA_COL As Integer
@@ -15,35 +16,24 @@ Public totalImportRows As Long
 
 Public GlobalSheets As Collection
 Public GarmanWorkBook As Workbook
-
-'' TODO
-'' - createsheet:
-    '' Add condition to handle if a sheet already has that name
-    '' Have way to find end of Row
-'' Check hardvalues
-'' add formating to the Summary and Z Value Cells
-
-Sub main()
+Sub importDataMain()
 
     Dim clientFiles() As String
     Dim curFileName As String
     Dim curSheet As Worksheet
     
     
-    init
+    Init
     ''createSheet
     Set curSheet = Worksheets("Sort Data")
         
     DisplayHeaders curSheet
     
-    startingInputRow = curSheet.Cells(curSheet.Rows.count, 1).End(xlUp).row + 1
+    startingInputRow = curSheet.Cells(curSheet.Rows.count, 1).End(xlUp).Row + 1
     
     clientFiles = GetFileInDirectory(CLIENT_DATA_FOLDER)
     
     curFileName = ActiveWorkbook.Path & "\" & CLIENT_DATA_FOLDER & "\" & clientFiles(0)
-    
-    
-
     
     '' Loads the garmin data in the newly created sheet
     loadGarminData curFileName, curSheet
@@ -57,12 +47,17 @@ Sub main()
     
    
     ''CreateMultiLineChart curSheet
+    clearMyTable curSheet
+    createTable curSheet, CLng(SORT_DATA_HEADING_ROW), CLng(SORT_DATA_FILE_NAME_COL), 0, "SortDataTable"
     
-    
-   
+    FormatColumnDecimalsRange curSheet, 6, 15, 2
+    FormatRunnerTime curSheet, "Time"
+    FormatRunnerTime curSheet, "Avg Pace"
+    FormatRunnerTime curSheet, "Best Pace"
+    AutoFitAllTables curSheet
 
 End Sub
-Sub init()
+Sub Init()
     Set GarmanWorkBook = ActiveWorkbook
     Set GlobalSheets = New Collection
     SORT_DATA_HEADING_ROW = 2
@@ -79,7 +74,7 @@ Sub init()
     IMPORT_HEADERS = Array("Time", "Distance", "Avg Pace", "Best Pace", "Avg HR", "Max HR", "Avg Run Cadence", "Max Run Cadence", "Avg Stride Length", "Avg Vertical Oscillation", "Avg Vertical Ratio")
 End Sub
 Sub createSheet()
-    Dim curws As Worksheet
+    Dim curWS As Worksheet
     
     Dim wsNames As Variant
     Dim i As Integer
@@ -88,23 +83,23 @@ Sub createSheet()
     
     For i = LBound(wsNames) To UBound(wsNames)
     
-        Set curws = GarmanWorkBook.Worksheets.Add(After:=GarmanWorkBook.Worksheets(GarmanWorkBook.Worksheets.count))
-        curws.Name = wsNames(i)
+        Set curWS = GarmanWorkBook.Worksheets.add(After:=GarmanWorkBook.Worksheets(GarmanWorkBook.Worksheets.count))
+        curWS.Name = wsNames(i)
     
-    GlobalSheets.Add curws, wsNames(i)
+    GlobalSheets.add curWS, wsNames(i)
     Next i
     
 End Sub
 Sub DisplayHeaders(destinationWS As Worksheet)
     Dim i As Long
         
-    destinationWS.Cells(SORT_DATA_HEADING_ROW, SORT_DATA_FILE_NAME_COL).Value = "File Name"
-    destinationWS.Cells(SORT_DATA_HEADING_ROW, SORT_DATA_DATE_COL).Value = "Date"
-    destinationWS.Cells(SORT_DATA_HEADING_ROW, SORT_DATA_INTERVAL_COL).Value = "Interval"
-    destinationWS.Cells(SORT_DATA_HEADING_ROW, SORT_DATA_STEP_TYPE_COL).Value = "Step Type"
+    destinationWS.Cells(SORT_DATA_HEADING_ROW, SORT_DATA_FILE_NAME_COL).value = "File Name"
+    destinationWS.Cells(SORT_DATA_HEADING_ROW, SORT_DATA_DATE_COL).value = "Date"
+    destinationWS.Cells(SORT_DATA_HEADING_ROW, SORT_DATA_INTERVAL_COL).value = "Interval"
+    destinationWS.Cells(SORT_DATA_HEADING_ROW, SORT_DATA_STEP_TYPE_COL).value = "Step Type"
     
     For i = LBound(IMPORT_HEADERS) To UBound(IMPORT_HEADERS)
-        destinationWS.Cells(SORT_DATA_HEADING_ROW, SORT_DATA_IMPORT_DATA_COL + i).Value = IMPORT_HEADERS(i)
+        destinationWS.Cells(SORT_DATA_HEADING_ROW, SORT_DATA_IMPORT_DATA_COL + i).value = IMPORT_HEADERS(i)
     Next i
 
 End Sub
@@ -121,10 +116,10 @@ Sub loadGarminData(filePath As String, destinationWS As Worksheet)
     Set srcCSVws = srcCSV.Sheets(1)
     
     csvLastCol = srcCSVws.Cells(1, srcCSVws.Columns.count).End(xlToLeft).Column
-    csvLastRow = srcCSVws.Cells(srcCSVws.Rows.count, 1).End(xlUp).row
+    csvLastRow = srcCSVws.Cells(srcCSVws.Rows.count, 1).End(xlUp).Row
     
     'Removes the summary Row'
-    If StrComp(srcCSVws.Cells(csvLastRow, 1).Value(), "Summary", vbTextCompare) = 0 Then
+    If StrComp(srcCSVws.Cells(csvLastRow, 1).value(), "Summary", vbTextCompare) = 0 Then
     
         csvLastRow = csvLastRow - 1
     End If
@@ -134,14 +129,14 @@ Sub loadGarminData(filePath As String, destinationWS As Worksheet)
     
     ' Loop all source CSV columns
     For col = 1 To csvLastCol
-        Header = srcCSVws.Cells(1, col).Value
+        Header = srcCSVws.Cells(1, col).value
         
         'copies over the columns that are in IMPORT HEADERS'
         If IsInArray(Header, IMPORT_HEADERS) Then
             ' Copy the entire column to next available destination col
             
             
-            srcCSVws.Range(srcCSVws.Cells(2, col), srcCSVws.Cells(csvLastRow, col)).Copy _
+            srcCSVws.range(srcCSVws.Cells(2, col), srcCSVws.Cells(csvLastRow, col)).Copy _
         destinationWS.Cells(startingInputRow, destinationColumn)
             destinationColumn = destinationColumn + 1
         End If
@@ -155,12 +150,12 @@ End Sub
 
 Sub addCustomHeaders(selectedSheet As Worksheet)
 
-    selectedSheet.Range("A1").Value = "Date"
-    selectedSheet.Range("B1").Value = "Type of Work-Out"
-    selectedSheet.Range("C1").Value = "Work Interval Time (s)"
-    selectedSheet.Range("D1").Value = "Work Interval Distance (m)"
-    selectedSheet.Range("E1").Value = "Work Interval Pace (min/km)"
-    selectedSheet.Range("F1").Value = "Rep Break (s)"
+    selectedSheet.range("A1").value = "Date"
+    selectedSheet.range("B1").value = "Type of Work-Out"
+    selectedSheet.range("C1").value = "Work Interval Time (s)"
+    selectedSheet.range("D1").value = "Work Interval Distance (m)"
+    selectedSheet.range("E1").value = "Work Interval Pace (min/km)"
+    selectedSheet.range("F1").value = "Rep Break (s)"
         
 End Sub
 Sub setStepType(selSheet As Worksheet)
@@ -178,16 +173,16 @@ Sub setStepType(selSheet As Worksheet)
     selCol = 7
     
     For curRow = startingInputRow To startingInputRow + totalImportRows - 1
-        cellVal = selSheet.Cells(curRow, selCol).Value
+        cellVal = selSheet.Cells(curRow, selCol).value
         
         t = CDate(CDbl(cellVal))
         
         If IsDate(t) Then
             If TimeValue(t) < threshold Then
-            selSheet.Cells(curRow, SORT_DATA_STEP_TYPE_COL).Value = "Run"
+            selSheet.Cells(curRow, SORT_DATA_STEP_TYPE_COL).value = "Run"
             
         Else
-            selSheet.Cells(curRow, SORT_DATA_STEP_TYPE_COL).Value = "Recovery"
+            selSheet.Cells(curRow, SORT_DATA_STEP_TYPE_COL).value = "Recovery"
         End If
         
     End If
@@ -203,10 +198,10 @@ Sub setIntervalNum(selSheet As Worksheet)
        
     For curRow = startingInputRow To startingInputRow + totalImportRows - 1
     
-        If (selSheet.Cells(curRow, SORT_DATA_STEP_TYPE_COL).Value = "Run") Then
+        If (selSheet.Cells(curRow, SORT_DATA_STEP_TYPE_COL).value = "Run") Then
             counter = counter + 1
         End If
-        selSheet.Cells(curRow, SORT_DATA_INTERVAL_COL).Value = counter
+        selSheet.Cells(curRow, SORT_DATA_INTERVAL_COL).value = counter
 
     Next curRow
 
@@ -216,7 +211,7 @@ Sub SetFileNameColumn(selSheet As Worksheet, fileName As String)
     
     For curRow = startingInputRow To startingInputRow + totalImportRows - 1
     
-        selSheet.Cells(curRow, SORT_DATA_FILE_NAME_COL).Value = fileName
+        selSheet.Cells(curRow, SORT_DATA_FILE_NAME_COL).value = fileName
 
     Next curRow
 
@@ -226,7 +221,7 @@ Sub SetDateColumn(selSheet As Worksheet, enteredDate As String)
   
     For curRow = startingInputRow To startingInputRow + totalImportRows - 1
     
-        selSheet.Cells(curRow, SORT_DATA_DATE_COL).Value = enteredDate
+        selSheet.Cells(curRow, SORT_DATA_DATE_COL).value = enteredDate
 
     Next curRow
 
