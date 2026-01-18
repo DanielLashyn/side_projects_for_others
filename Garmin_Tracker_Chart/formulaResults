@@ -1,0 +1,165 @@
+Public DataSheet As Worksheet
+Public ResultSheet As Worksheet
+Public FR_HEADING_ROW As Long
+Public FR_HEADERS As Variant
+
+Sub FormulaResultsSheet()
+    FormulaResultsInit
+    
+    
+    DisplayFormulaResultHeaders ResultSheet
+    
+    addAverages "activity.csv", "SortDataTable", "Run"
+    addAverages "activity.csv", "SortDataTable", "Recovery"
+    addStandDeviation "activity.csv", "SortDataTable", "Run"
+    addStandDeviation "activity.csv", "SortDataTable", "Recovery"
+    
+
+    createTable ResultSheet, 1, 1, 0, "FormulaResults"
+    FormatColumnDecimalsRange ResultSheet, 6, 15, 2
+    FormatRunnerTime ResultSheet, "Time"
+    FormatRunnerTime ResultSheet, "Avg Pace"
+    FormatRunnerTime ResultSheet, "Best Pace"
+    
+    AutoFitAllTables ResultSheet
+
+End Sub
+
+Sub FormulaResultsInit()
+
+    Dim DataSheetName As String
+    Dim ResultSheetName As String
+    
+    
+    DataSheetName = "Sort Data"
+    ResultSheetName = "Results"
+    
+    'Stops if the Data Sheet doesn't exist'
+    If Not DoesSheetExist(DataSheetName) Then
+        MsgBox "Data Sheet doesn't exist!", vbOKOnly, "Error"
+        End
+        
+    End If
+    
+    Set DataSheet = Worksheets(DataSheetName)
+    
+    'Sets the result sheet'
+    If DoesSheetExist(ResultSheetName) Then
+        Set ResultSheet = Worksheets(ResultSheetName)
+    Else
+        Set ResultSheet = ActiveWorkbook.Worksheets.add(After:=DataSheet)
+        ResultSheet.Name = ResultSheetName
+    
+    End If
+    
+    
+    FR_HEADING_ROW = 1
+    FR_HEADERS = Array("File Name", "Date", "Formula", "Step Type", "Time", "Distance", "Avg Pace", "Best Pace", "Avg HR", "Max HR", "Avg Run Cadence", "Max Run Cadence", "Avg Stride Length", "Avg Vertical Oscillation", "Avg Vertical Ratio")
+      
+
+
+End Sub
+
+Sub DisplayFormulaResultHeaders(destinationWS As Worksheet)
+    Dim i As Long
+        
+    
+    For i = LBound(FR_HEADERS) To UBound(FR_HEADERS)
+        destinationWS.Cells(FR_HEADING_ROW, i + 1).value = FR_HEADERS(i)
+    Next i
+    
+End Sub
+
+Sub addAverages(fileName As String, tableName As String, StepType As String)
+    
+    Dim datatbl As ListObject
+    Set datatbl = GetTableByPartialName(DataSheet, tableName)
+    Dim i, availableRow As Long
+    
+    
+    availableRow = ResultSheet.Cells(ResultSheet.Rows.count, "A").End(xlUp).Row + 1
+    'Checks that it was able to find the table'
+    If datatbl Is Nothing Then
+        MsgBox "No tables found on this sheet."
+        Exit Sub
+    End If
+    
+    
+    For i = LBound(FR_HEADERS) To UBound(FR_HEADERS)
+        
+        
+        If i = 0 Then
+            ResultSheet.Cells(availableRow, i + 1).value = fileName
+            
+        ElseIf i = 1 Then
+        
+           ResultSheet.Cells(availableRow, i + 1).Formula = "=XLOOKUP( " & _
+                Cells(availableRow, 1).Address(False, False) & "," & _
+                 datatbl.Name & "[File Name]," & _
+                 datatbl.Name & "[Date])"
+
+        ElseIf i = 2 Then
+            ResultSheet.Cells(availableRow, i + 1).value = "Averages"
+            
+        ElseIf i = 3 Then
+            ResultSheet.Cells(availableRow, i + 1).value = StepType
+        Else
+    
+           ResultSheet.Cells(availableRow, i + 1).Formula = "=AVERAGEIFS( " & _
+            datatbl.Name & "[" & FR_HEADERS(i) & "]," & _
+            datatbl.Name & "[File Name], " & Cells(availableRow, 1).Address(False, False) & ", " & _
+            datatbl.Name & "[Step Type], " & Cells(availableRow, 4).Address(False, False) & ")"
+        
+        End If
+    
+    Next i
+
+End Sub
+
+Sub addStandDeviation(fileName As String, tableName As String, StepType As String)
+    Dim datatbl As ListObject
+    Set datatbl = GetTableByPartialName(DataSheet, tableName)
+    Dim i, availableRow As Long
+    
+    
+    availableRow = ResultSheet.Cells(ResultSheet.Rows.count, "A").End(xlUp).Row + 1
+    'Checks that it was able to find the table'
+    If datatbl Is Nothing Then
+        MsgBox "No tables found on this sheet."
+        Exit Sub
+    End If
+    
+    
+    For i = LBound(FR_HEADERS) To UBound(FR_HEADERS)
+        
+        
+        If i = 0 Then
+            ResultSheet.Cells(availableRow, i + 1).value = fileName
+            
+        ElseIf i = 1 Then
+        
+           ResultSheet.Cells(availableRow, i + 1).Formula = "=XLOOKUP( " & _
+                Cells(availableRow, 1).Address(False, False) & "," & _
+                 datatbl.Name & "[File Name]," & _
+                 datatbl.Name & "[Date])"
+
+        ElseIf i = 2 Then
+            ResultSheet.Cells(availableRow, i + 1).value = "Standard Deviations"
+            
+        ElseIf i = 3 Then
+            ResultSheet.Cells(availableRow, i + 1).value = StepType
+        Else
+    
+            '=STDEV.S(FILTER(Table1[Time], (Table1[File Name]=$A8)*(Table1[Step Type]=$D8)))'
+           ResultSheet.Cells(availableRow, i + 1).Formula = "=STDEV.S(FILTER( " & _
+            datatbl.Name & "[" & FR_HEADERS(i) & "]," & _
+            "(" & datatbl.Name & "[File Name] = " & Cells(availableRow, 1).Address(False, False) & ") * " & _
+            "(" & datatbl.Name & "[Step Type] = " & Cells(availableRow, 4).Address(False, False) & ")))"
+        
+        End If
+    
+    Next i
+
+End Sub
+
+
